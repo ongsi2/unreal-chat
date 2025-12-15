@@ -1,0 +1,27 @@
+{
+  "enabledPlugins": {
+    "code-review@claude-code-plugins": true
+  },
+  "hooks": {
+    "PreCompact": [
+      {
+        "matcher": "auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[자동 압축] 컨텍스트 윈도우 한계로 인한 자동 압축 - $(date)' >> .claude/compact-history.log"
+          }
+        ]
+      },
+      {
+        "matcher": "manual",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[수동 압축] 사용자 요청에 의한 압축 - $(date)' >> .claude/compact-history.log"
+          }
+        ]
+      }
+    ]
+  }
+}

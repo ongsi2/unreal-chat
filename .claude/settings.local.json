@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app:*)",
+      "Bash(npx create-next-app@latest temp-next-app --typescript --tailwind --app --use-npm --no-git --import-alias \"@/*\")",
+      "Bash(npx create-next-app@latest temp-next-app --typescript --tailwind --app --use-npm --no-git --import-alias \"@/*\" --eslint)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run build:*)",
+      "Skill(flutter-init:workthrough-v2)",
+      "Bash(if not exist workthrough mkdir workthrough)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_take_screenshot",
+      "Bash(if exist package.json type package.json)",
+      "Bash(npm run dev)",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_press_key",
+      "mcp__playwright__browser_handle_dialog",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(cat:*)",
+      "Bash(timeout 10 cmd:*)",
+      "Bash(ping:*)",
+      "Bash(powershell -Command \"Stop-Process -Id 20920 -Force\")",
+      "Bash(npx playwright test:*)",
+      "Bash(npx playwright install)",
+      "Bash(npm run reset-db:*)",
+      "Bash(npm run seed:*)",
+      "Bash(npm run reset-redis:*)",
+      "Bash(npm run reset-all:*)",
+      "Bash(tsx scripts/list-users.ts:*)",
+      "Bash(powershell -Command \"Stop-Process -Id 51652 -Force\")"
+    ]
+  }
+}
