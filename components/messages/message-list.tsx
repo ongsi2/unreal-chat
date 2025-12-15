@@ -26,6 +26,12 @@ const getColorForUser = (userId: string) => {
   return colors[index % colors.length];
 };
 
+interface OnlineUser {
+  userId: string;
+  username: string;
+  socketId: string;
+}
+
 export function MessageList() {
   const { messages, addMessage, clearMessages } = useMessageStore();
   const { currentUser } = useUserStore();
@@ -34,6 +40,9 @@ export function MessageList() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [roomUserCount, setRoomUserCount] = useState<number>(1);
   const prevChatRoomIdRef = useRef<string | null>(null);
+  const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map());
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
+  const [showOnlineUsers, setShowOnlineUsers] = useState(false);
 
   // 채팅방 나가기 핸들러
   const handleLeaveChatRoom = async () => {
@@ -163,8 +172,38 @@ export function MessageList() {
       }
     };
 
+    // 타이핑 시작
+    const handleUserTyping = ({ userId, username }: { userId: string; username: string }) => {
+      // 자신의 타이핑은 표시하지 않음
+      if (userId === currentUser?.id) return;
+
+      setTypingUsers((prev) => {
+        const next = new Map(prev);
+        next.set(userId, username);
+        return next;
+      });
+    };
+
+    // 타이핑 중지
+    const handleUserStopTyping = ({ userId }: { userId: string }) => {
+      setTypingUsers((prev) => {
+        const next = new Map(prev);
+        next.delete(userId);
+        return next;
+      });
+    };
+
+    // 온라인 사용자 목록 업데이트
+    const handleUsersOnline = (users: OnlineUser[]) => {
+      console.log("👥 온라인 사용자 업데이트:", users);
+      setOnlineUsers(users);
+    };
+
     socket.on("message:receive", handleMessageReceive);
     socket.on("room:user-count", handleRoomUserCount);
+    socket.on("user:typing", handleUserTyping);
+    socket.on("user:stop-typing", handleUserStopTyping);
+    socket.on("users:online", handleUsersOnline);
     console.log("👂 Socket 이벤트 리스너 등록 완료");
 
     // 클린업
@@ -172,6 +211,9 @@ export function MessageList() {
       console.log("🧹 Socket.io 이벤트 리스너 정리");
       socket.off("message:receive", handleMessageReceive);
       socket.off("room:user-count", handleRoomUserCount);
+      socket.off("user:typing", handleUserTyping);
+      socket.off("user:stop-typing", handleUserStopTyping);
+      socket.off("users:online", handleUsersOnline);
     };
   }, [socket, currentChatRoom, currentUser, addMessage]);
 
@@ -220,6 +262,11 @@ export function MessageList() {
     loadMessages();
   }, [currentChatRoom?.id, currentUser, socket, clearMessages, addMessage]);
 
+  // 채팅방 변경 시 타이핑 상태 초기화
+  useEffect(() => {
+    setTypingUsers(new Map());
+  }, [currentChatRoom?.id]);
+
   if (!currentChatRoom) {
     return (
       <Card className="h-full flex items-center justify-center bg-white border-slate-200 shadow-sm">
@@ -246,21 +293,53 @@ export function MessageList() {
             </div>
             <div>
               <CardTitle className="text-lg">{currentChatRoom.name}</CardTitle>
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <button
+                onClick={() => setShowOnlineUsers(!showOnlineUsers)}
+                className="text-xs text-muted-foreground flex items-center gap-1 hover:text-slate-700 transition-colors cursor-pointer"
+              >
                 <Users className="h-3 w-3" />
-                {roomUserCount}명 온라인
-              </p>
+                {onlineUsers.length}명 온라인
+              </button>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLeaveChatRoom}
-            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-          >
-            <LogOut className="h-4 w-4 mr-1" />
-            나가기
-          </Button>
+          <div className="flex items-center gap-2">
+            {showOnlineUsers && (
+              <div className="absolute top-16 right-4 z-10 bg-white border border-slate-200 rounded-lg shadow-lg p-3 min-w-[200px]">
+                <p className="text-sm font-semibold mb-2 text-slate-700">온라인 사용자</p>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {onlineUsers.length === 0 ? (
+                    <p className="text-xs text-slate-500">온라인 사용자가 없습니다</p>
+                  ) : (
+                    onlineUsers.map((user) => {
+                      const color = getColorForUser(user.userId);
+                      return (
+                        <div key={user.userId} className="flex items-center gap-2">
+                          <div className={`w-6 h-6 rounded-full ${color} flex items-center justify-center`}>
+                            <span className="text-white font-bold text-xs">
+                              {user.username.substring(0, 2).toUpperCase()}
+                            </span>
+                          </div>
+                          <span className="text-sm text-slate-700">{user.username}</span>
+                          {user.userId === currentUser?.id && (
+                            <span className="text-xs text-slate-500">(나)</span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLeaveChatRoom}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              <LogOut className="h-4 w-4 mr-1" />
+              나가기
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex-1 p-0 bg-slate-50">
@@ -349,6 +428,23 @@ export function MessageList() {
                   </div>
                 );
               })
+            )}
+
+            {/* 타이핑 중 표시 */}
+            {typingUsers.size > 0 && (
+              <div className="flex gap-2 items-center py-2">
+                <div className="w-8" />
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                  <span className="text-xs">
+                    {Array.from(typingUsers.values()).join(", ")}님이 입력 중...
+                  </span>
+                </div>
+              </div>
             )}
           </div>
         </ScrollArea>

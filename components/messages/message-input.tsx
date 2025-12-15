@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { messageFormSchema, type MessageFormInput } from "@/lib/validations/message";
@@ -16,16 +16,21 @@ export function MessageInput() {
   const { currentUser } = useUserStore();
   const { currentChatRoom } = useChatRoomStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const {
     register,
     handleSubmit,
     reset,
     setFocus,
+    watch,
     formState: { errors },
   } = useForm<MessageFormInput>({
     resolver: zodResolver(messageFormSchema),
   });
+
+  const contentValue = watch("content");
 
   // 채팅방 바뀔 때마다 입력창 초기화
   useEffect(() => {
@@ -42,6 +47,15 @@ export function MessageInput() {
     if (!currentUser || !currentChatRoom || !socket) {
       console.error("❌ 필수 정보 누락:", { currentUser, currentChatRoom, socket: !!socket });
       return;
+    }
+
+    // 메시지 전송 전에 타이핑 중지
+    if (isTyping) {
+      socket.emit("typing:stop", {
+        roomId: currentChatRoom.id,
+        userId: currentUser.id,
+      });
+      setIsTyping(false);
     }
 
     setIsSubmitting(true);
@@ -70,6 +84,54 @@ export function MessageInput() {
       setIsSubmitting(false);
     }
   };
+
+  // 타이핑 이벤트 처리 (contentValue 변화 감지)
+  useEffect(() => {
+    if (!socket || !currentUser || !currentChatRoom) return;
+
+    // 입력이 있으면 타이핑 시작
+    if (contentValue && contentValue.length > 0 && !isTyping) {
+      console.log("🔤 타이핑 시작:", currentUser.username);
+      socket.emit("typing:start", {
+        roomId: currentChatRoom.id,
+        userId: currentUser.id,
+        username: currentUser.username,
+      });
+      setIsTyping(true);
+    }
+
+    // 기존 타이머 클리어
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // 2초 후에 타이핑 중지
+    if (contentValue && contentValue.length > 0) {
+      typingTimeoutRef.current = setTimeout(() => {
+        console.log("🛑 타이핑 중지 (타임아웃):", currentUser.username);
+        socket.emit("typing:stop", {
+          roomId: currentChatRoom.id,
+          userId: currentUser.id,
+        });
+        setIsTyping(false);
+      }, 2000);
+    }
+  }, [contentValue, socket, currentUser, currentChatRoom]);
+
+  // 채팅방 변경 또는 언마운트 시 타이핑 중지
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      if (socket && currentUser && currentChatRoom && isTyping) {
+        socket.emit("typing:stop", {
+          roomId: currentChatRoom.id,
+          userId: currentUser.id,
+        });
+      }
+    };
+  }, [currentChatRoom?.id]);
 
   if (!currentChatRoom) {
     return null;

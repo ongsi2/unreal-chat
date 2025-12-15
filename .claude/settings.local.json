@@ -34,7 +34,10 @@
       "Bash(npm run reset-redis:*)",
       "Bash(npm run reset-all:*)",
       "Bash(tsx scripts/list-users.ts:*)",
-      "Bash(powershell -Command \"Stop-Process -Id 51652 -Force\")"
+      "Bash(powershell -Command \"Stop-Process -Id 51652 -Force\")",
+      "mcp__playwright__browser_tabs",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_close"
     ]
   }
 }
